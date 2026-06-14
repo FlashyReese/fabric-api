@@ -16,6 +16,8 @@
 
 package net.fabricmc.fabric.api.client.rendering.v1.level.sky;
 
+import java.util.function.Function;
+
 import net.minecraft.resources.Identifier;
 
 import net.fabricmc.fabric.api.event.Event;
@@ -29,13 +31,27 @@ public final class SkyRenderEvents {
 	}
 
 	/**
+	 * Event phase for listeners that should run before the default phase.
+	 */
+	public static final Identifier EARLY_PHASE = Identifier.fromNamespaceAndPath("fabric", "early");
+
+	/**
+	 * Event phase for listeners that should run after the default phase.
+	 */
+	public static final Identifier LATE_PHASE = Identifier.fromNamespaceAndPath("fabric", "late");
+
+	private static <T> Event<T> createSkyRenderEvent(Class<T> type, Function<T[], T> invokerFactory) {
+		return EventFactory.createWithPhases(type, invokerFactory, EARLY_PHASE, Event.DEFAULT_PHASE, LATE_PHASE);
+	}
+
+	/**
 	 * Called after all render states are extracted, before any are drawn.
 	 * Use this to extract general custom data needed for rendering.
 	 *
 	 * <p>To attach modded data to vanilla render states, see {@link net.fabricmc.fabric.api.client.rendering.v1.FabricRenderState FabricRenderState}.
 	 * Only attach the minimum data needed for rendering. Do not attach objects that are not thread-safe such as {@link net.minecraft.client.multiplayer.ClientLevel}.
 	 */
-	public static final Event<EndExtraction> END_EXTRACTION = EventFactory.createArrayBacked(EndExtraction.class, callbacks -> context -> {
+	public static final Event<EndExtraction> END_EXTRACTION = createSkyRenderEvent(EndExtraction.class, callbacks -> context -> {
 		for (final EndExtraction callback : callbacks) {
 			callback.execute(context);
 		}
@@ -43,21 +59,26 @@ public final class SkyRenderEvents {
 
 	/**
 	 * Called at the start of the "addSkyPass" lambda.
+	 *
+	 * <p>Returning {@code true} cancels vanilla sky rendering. All listeners are called even if an earlier listener
+	 * cancels rendering.
 	 */
-	public static final Event<PreSky> PRE_SKY = EventFactory.createArrayBacked(PreSky.class, callbacks -> context -> {
+	public static final Event<PreSky> PRE_SKY = createSkyRenderEvent(PreSky.class, callbacks -> context -> {
+		boolean cancelled = false;
+
 		for (final PreSky callback : callbacks) {
 			if (callback.execute(context)) {
-				return true;
+				cancelled = true;
 			}
 		}
 
-		return false;
+		return cancelled;
 	});
 
 	/**
 	 * Called at the end of the "addSkyPass" lambda.
 	 */
-	public static final Event<PostSky> POST_SKY = EventFactory.createArrayBacked(PostSky.class, callbacks -> (context, cancelled) -> {
+	public static final Event<PostSky> POST_SKY = createSkyRenderEvent(PostSky.class, callbacks -> (context, cancelled) -> {
 		for (final PostSky callback : callbacks) {
 			callback.execute(context, cancelled);
 		}
@@ -65,21 +86,26 @@ public final class SkyRenderEvents {
 
 	/**
 	 * Called before "renderEndSky" is invoked, determines if the end sky should render or not.
+	 *
+	 * <p>Returning {@code true} cancels vanilla end sky rendering. All listeners are called even if an earlier listener
+	 * cancels rendering.
 	 */
-	public static final Event<PreEndSky> PRE_END_SKY = EventFactory.createArrayBacked(PreEndSky.class, callbacks -> context -> {
+	public static final Event<PreEndSky> PRE_END_SKY = createSkyRenderEvent(PreEndSky.class, callbacks -> context -> {
+		boolean cancelled = false;
+
 		for (final PreEndSky callback : callbacks) {
 			if (callback.execute(context)) {
-				return true;
+				cancelled = true;
 			}
 		}
 
-		return false;
+		return cancelled;
 	});
 
 	/**
 	 * Called after "renderEndSky" is invoked.
 	 */
-	public static final Event<PostEndSky> POST_END_SKY = EventFactory.createArrayBacked(PostEndSky.class, callbacks -> (context, cancelled) -> {
+	public static final Event<PostEndSky> POST_END_SKY = createSkyRenderEvent(PostEndSky.class, callbacks -> (context, cancelled) -> {
 		for (final PostEndSky callback : callbacks) {
 			callback.execute(context, cancelled);
 		}
@@ -87,21 +113,26 @@ public final class SkyRenderEvents {
 
 	/**
 	 * Called before the top/bottom sky disc is rendered, determines if it should render or not.
+	 *
+	 * <p>Returning {@code true} cancels vanilla sky disc rendering. All listeners are called even if an earlier listener
+	 * cancels rendering.
 	 */
-	public static final Event<PreSkyDisc> PRE_SKY_DISC = EventFactory.createArrayBacked(PreSkyDisc.class, callbacks -> (context, type) -> {
+	public static final Event<PreSkyDisc> PRE_SKY_DISC = createSkyRenderEvent(PreSkyDisc.class, callbacks -> (context, type) -> {
+		boolean cancelled = false;
+
 		for (final PreSkyDisc callback : callbacks) {
 			if (callback.execute(context, type)) {
-				return true;
+				cancelled = true;
 			}
 		}
 
-		return false;
+		return cancelled;
 	});
 
 	/**
 	 * Called after the top/bottom sky disc is rendered.
 	 */
-	public static final Event<PostSkyDisc> POST_SKY_DISC = EventFactory.createArrayBacked(PostSkyDisc.class, callbacks -> (context, type, cancelled) -> {
+	public static final Event<PostSkyDisc> POST_SKY_DISC = createSkyRenderEvent(PostSkyDisc.class, callbacks -> (context, type, cancelled) -> {
 		for (final PostSkyDisc callback : callbacks) {
 			callback.execute(context, type, cancelled);
 		}
@@ -109,21 +140,26 @@ public final class SkyRenderEvents {
 
 	/**
 	 * Called when sunrise/sunset in the Overworld is rendered.
+	 *
+	 * <p>Returning {@code true} cancels vanilla sunrise/sunset rendering. All listeners are called even if an earlier
+	 * listener cancels rendering.
 	 */
-	public static final Event<PreSunriseSunset> PRE_SUNRISE_SUNSET = EventFactory.createArrayBacked(PreSunriseSunset.class, callbacks -> context -> {
+	public static final Event<PreSunriseSunset> PRE_SUNRISE_SUNSET = createSkyRenderEvent(PreSunriseSunset.class, callbacks -> context -> {
+		boolean cancelled = false;
+
 		for (final PreSunriseSunset callback : callbacks) {
 			if (callback.execute(context)) {
-				return true;
+				cancelled = true;
 			}
 		}
 
-		return false;
+		return cancelled;
 	});
 
 	/**
 	 * Called when sunrise/sunset in the Overworld is rendered.
 	 */
-	public static final Event<PostSunriseSunset> POST_SUNRISE_SUNSET = EventFactory.createArrayBacked(PostSunriseSunset.class, callbacks -> (context, cancelled) -> {
+	public static final Event<PostSunriseSunset> POST_SUNRISE_SUNSET = createSkyRenderEvent(PostSunriseSunset.class, callbacks -> (context, cancelled) -> {
 		for (final PostSunriseSunset callback : callbacks) {
 			callback.execute(context, cancelled);
 		}
@@ -132,7 +168,7 @@ public final class SkyRenderEvents {
 	/**
 	 * Called after the rendering of the sun/moon/stars.
 	 */
-	public static final Event<PostSunMoonStars> POST_SUN_MOON_STARS = EventFactory.createArrayBacked(PostSunMoonStars.class, callbacks -> context -> {
+	public static final Event<PostSunMoonStars> POST_SUN_MOON_STARS = createSkyRenderEvent(PostSunMoonStars.class, callbacks -> context -> {
 		for (final PostSunMoonStars callback : callbacks) {
 			callback.execute(context);
 		}
@@ -140,21 +176,26 @@ public final class SkyRenderEvents {
 
 	/**
 	 * Called before the sun, moon, or stars are rendered.
+	 *
+	 * <p>Returning {@code true} cancels vanilla rendering for the specified celestial element. All listeners are called
+	 * even if an earlier listener cancels rendering.
 	 */
-	public static final Event<PreCelestial> PRE_CELESTIAL = EventFactory.createArrayBacked(PreCelestial.class, callbacks -> (context, type) -> {
+	public static final Event<PreCelestial> PRE_CELESTIAL = createSkyRenderEvent(PreCelestial.class, callbacks -> (context, type) -> {
+		boolean cancelled = false;
+
 		for (final PreCelestial callback : callbacks) {
 			if (callback.execute(context, type)) {
-				return true;
+				cancelled = true;
 			}
 		}
 
-		return false;
+		return cancelled;
 	});
 
 	/**
 	 * Called after the sun, moon, or stars are rendered.
 	 */
-	public static final Event<PostCelestial> POST_CELESTIAL = EventFactory.createArrayBacked(PostCelestial.class, callbacks -> (context, type, cancelled) -> {
+	public static final Event<PostCelestial> POST_CELESTIAL = createSkyRenderEvent(PostCelestial.class, callbacks -> (context, type, cancelled) -> {
 		for (final PostCelestial callback : callbacks) {
 			callback.execute(context, type, cancelled);
 		}
@@ -162,21 +203,26 @@ public final class SkyRenderEvents {
 
 	/**
 	 * Unused by FAPI, intended for mod developers to invoke when adding custom elements to the sky when rendering allowing other mods to intercept them and do as please.
+	 *
+	 * <p>Returning {@code true} cancels rendering for the specified custom element. All listeners are called even if an
+	 * earlier listener cancels rendering.
 	 */
-	public static final Event<PreCustomElement> PRE_CUSTOM_ELEMENT = EventFactory.createArrayBacked(PreCustomElement.class, callbacks -> (key, context) -> {
+	public static final Event<PreCustomElement> PRE_CUSTOM_ELEMENT = createSkyRenderEvent(PreCustomElement.class, callbacks -> (key, context) -> {
+		boolean cancelled = false;
+
 		for (final PreCustomElement callback : callbacks) {
 			if (callback.execute(key, context)) {
-				return true;
+				cancelled = true;
 			}
 		}
 
-		return false;
+		return cancelled;
 	});
 
 	/**
 	 * Unused by FAPI, intended for mod developers to invoke when adding custom elements to the sky when rendering allowing other mods to intercept them and do as please.
 	 */
-	public static final Event<PostCustomElement> POST_CUSTOM_ELEMENT = EventFactory.createArrayBacked(PostCustomElement.class, callbacks -> (key, context, cancelled) -> {
+	public static final Event<PostCustomElement> POST_CUSTOM_ELEMENT = createSkyRenderEvent(PostCustomElement.class, callbacks -> (key, context, cancelled) -> {
 		for (final PostCustomElement callback : callbacks) {
 			callback.execute(key, context, cancelled);
 		}
