@@ -24,7 +24,11 @@ import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
 
 /**
- * To be used when adding custom skies or to modify existing aspects of the sky's rendering.
+ * Events that allow mods to add custom sky rendering or modify vanilla sky rendering.
+ *
+ * <p>All events are invoked during level rendering. Mods that need custom data for sky rendering should extract that
+ * data during {@link net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents#END_EXTRACTION} and attach it
+ * to render state with {@link net.fabricmc.fabric.api.client.rendering.v1.FabricRenderState}.
  */
 public final class SkyRenderEvents {
 	private SkyRenderEvents() {
@@ -45,23 +49,15 @@ public final class SkyRenderEvents {
 	}
 
 	/**
-	 * Called after all render states are extracted, before any are drawn.
-	 * Use this to extract general custom data needed for rendering.
+	 * Called before vanilla sky rendering begins.
 	 *
-	 * <p>To attach modded data to vanilla render states, see {@link net.fabricmc.fabric.api.client.rendering.v1.FabricRenderState FabricRenderState}.
-	 * Only attach the minimum data needed for rendering. Do not attach objects that are not thread-safe such as {@link net.minecraft.client.multiplayer.ClientLevel}.
-	 */
-	public static final Event<EndExtraction> END_EXTRACTION = createSkyRenderEvent(EndExtraction.class, callbacks -> context -> {
-		for (final EndExtraction callback : callbacks) {
-			callback.execute(context);
-		}
-	});
-
-	/**
-	 * Called at the start of the "addSkyPass" lambda.
+	 * <p>This event runs from the sky frame pass before vanilla sky rendering. The context exposes the render state
+	 * extracted for the current frame. Use {@link net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents#END_EXTRACTION}
+	 * to prepare custom render state during extraction.
 	 *
 	 * <p>Returning {@code true} cancels vanilla sky rendering. All listeners are called even if an earlier listener
-	 * cancels rendering.
+	 * cancels rendering. Cancelling this event skips the vanilla sky pass runnable, including vanilla sky discs,
+	 * End sky, sunrise/sunset, sun, moon, stars, and the dark disc.
 	 */
 	public static final Event<PreSky> PRE_SKY = createSkyRenderEvent(PreSky.class, callbacks -> context -> {
 		boolean cancelled = false;
@@ -76,7 +72,9 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called at the end of the "addSkyPass" lambda.
+	 * Called after vanilla sky rendering has either completed or been cancelled by {@link #PRE_SKY}.
+	 *
+	 * <p>The {@code cancelled} parameter is {@code true} if {@link #PRE_SKY} cancelled vanilla sky rendering.
 	 */
 	public static final Event<PostSky> POST_SKY = createSkyRenderEvent(PostSky.class, callbacks -> (context, cancelled) -> {
 		for (final PostSky callback : callbacks) {
@@ -85,7 +83,7 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called before "renderEndSky" is invoked, determines if the end sky should render or not.
+	 * Called before vanilla End sky rendering.
 	 *
 	 * <p>Returning {@code true} cancels vanilla end sky rendering. All listeners are called even if an earlier listener
 	 * cancels rendering.
@@ -103,7 +101,9 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called after "renderEndSky" is invoked.
+	 * Called after vanilla End sky rendering has either completed or been cancelled by {@link #PRE_END_SKY}.
+	 *
+	 * <p>The {@code cancelled} parameter is {@code true} if {@link #PRE_END_SKY} cancelled vanilla End sky rendering.
 	 */
 	public static final Event<PostEndSky> POST_END_SKY = createSkyRenderEvent(PostEndSky.class, callbacks -> (context, cancelled) -> {
 		for (final PostEndSky callback : callbacks) {
@@ -112,7 +112,7 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called before the top/bottom sky disc is rendered, determines if it should render or not.
+	 * Called before a vanilla sky disc is rendered.
 	 *
 	 * <p>Returning {@code true} cancels vanilla sky disc rendering. All listeners are called even if an earlier listener
 	 * cancels rendering.
@@ -130,7 +130,9 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called after the top/bottom sky disc is rendered.
+	 * Called after a vanilla sky disc has either rendered or been cancelled by {@link #PRE_SKY_DISC}.
+	 *
+	 * <p>The {@code cancelled} parameter is {@code true} if {@link #PRE_SKY_DISC} cancelled vanilla sky disc rendering.
 	 */
 	public static final Event<PostSkyDisc> POST_SKY_DISC = createSkyRenderEvent(PostSkyDisc.class, callbacks -> (context, type, cancelled) -> {
 		for (final PostSkyDisc callback : callbacks) {
@@ -139,7 +141,7 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called when sunrise/sunset in the Overworld is rendered.
+	 * Called before vanilla sunrise/sunset rendering in the Overworld.
 	 *
 	 * <p>Returning {@code true} cancels vanilla sunrise/sunset rendering. All listeners are called even if an earlier
 	 * listener cancels rendering.
@@ -157,7 +159,10 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called when sunrise/sunset in the Overworld is rendered.
+	 * Called after vanilla sunrise/sunset rendering has either completed or been cancelled by {@link #PRE_SUNRISE_SUNSET}.
+	 *
+	 * <p>The {@code cancelled} parameter is {@code true} if {@link #PRE_SUNRISE_SUNSET} cancelled vanilla
+	 * sunrise/sunset rendering.
 	 */
 	public static final Event<PostSunriseSunset> POST_SUNRISE_SUNSET = createSkyRenderEvent(PostSunriseSunset.class, callbacks -> (context, cancelled) -> {
 		for (final PostSunriseSunset callback : callbacks) {
@@ -166,7 +171,7 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called after the rendering of the sun/moon/stars.
+	 * Called after vanilla sun, moon, and stars rendering.
 	 */
 	public static final Event<PostSunMoonStars> POST_SUN_MOON_STARS = createSkyRenderEvent(PostSunMoonStars.class, callbacks -> context -> {
 		for (final PostSunMoonStars callback : callbacks) {
@@ -175,7 +180,7 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called before the sun, moon, or stars are rendered.
+	 * Called before the vanilla sun, moon, or stars are rendered.
 	 *
 	 * <p>Returning {@code true} cancels vanilla rendering for the specified celestial element. All listeners are called
 	 * even if an earlier listener cancels rendering.
@@ -193,7 +198,10 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Called after the sun, moon, or stars are rendered.
+	 * Called after the vanilla sun, moon, or stars have either rendered or been cancelled by {@link #PRE_CELESTIAL}.
+	 *
+	 * <p>The {@code cancelled} parameter is {@code true} if {@link #PRE_CELESTIAL} cancelled vanilla rendering for the
+	 * specified celestial element.
 	 */
 	public static final Event<PostCelestial> POST_CELESTIAL = createSkyRenderEvent(PostCelestial.class, callbacks -> (context, type, cancelled) -> {
 		for (final PostCelestial callback : callbacks) {
@@ -202,7 +210,8 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Unused by FAPI, intended for mod developers to invoke when adding custom elements to the sky when rendering allowing other mods to intercept them and do as please.
+	 * Unused by FAPI, intended for mod developers to invoke when adding custom elements to the sky when rendering,
+	 * allowing other mods to intercept them.
 	 *
 	 * <p>Returning {@code true} cancels rendering for the specified custom element. All listeners are called even if an
 	 * earlier listener cancels rendering.
@@ -220,18 +229,14 @@ public final class SkyRenderEvents {
 	});
 
 	/**
-	 * Unused by FAPI, intended for mod developers to invoke when adding custom elements to the sky when rendering allowing other mods to intercept them and do as please.
+	 * Unused by FAPI, intended for mod developers to invoke when adding custom elements to the sky when rendering,
+	 * allowing other mods to intercept them.
 	 */
 	public static final Event<PostCustomElement> POST_CUSTOM_ELEMENT = createSkyRenderEvent(PostCustomElement.class, callbacks -> (key, context, cancelled) -> {
 		for (final PostCustomElement callback : callbacks) {
 			callback.execute(key, context, cancelled);
 		}
 	});
-
-	@FunctionalInterface
-	public interface EndExtraction {
-		void execute(SkyExtractionContext context);
-	}
 
 	@FunctionalInterface
 	public interface PreSky {
